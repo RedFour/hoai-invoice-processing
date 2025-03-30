@@ -2,30 +2,29 @@ import { tool, DataStreamWriter, generateObject } from 'ai';
 import { z } from 'zod';
 import type { Session } from 'next-auth';
 import { findDuplicateInvoice } from '@/lib/db/queries';
-import fs from 'fs/promises';
 import { myProvider } from '@/lib/ai/models';
 
 // Define Zod schemas that match the database schemas
 export const lineItemSchema = z.object({
-  description: z.string(),
-  quantity: z.number().optional(),
-  unitPrice: z.number().optional(),
-  amount: z.number(),
-  productCode: z.string().optional(),
-  taxRate: z.number().optional(),
-  metadata: z.record(z.any()).optional(),
+  description: z.string().describe('Description of the product or service provided'),
+  quantity: z.number().optional().describe('Quantity of the product or service (optional)'),
+  unitPrice: z.number().optional().describe('Price per unit of the product or service (optional)'),
+  amount: z.number().describe('Total amount for this line item'),
+  productCode: z.string().optional().describe('Product code or SKU (optional)'),
+  taxRate: z.number().optional().describe('Tax rate applied to this line item (optional)'),
+  metadata: z.record(z.any()).optional().describe('Additional information about the line item (optional)'),
 });
 
 export const invoiceDataSchema = z.object({
-  customerName: z.string(),
-  vendorName: z.string(),
-  invoiceNumber: z.string(),
-  invoiceDate: z.date(),
-  dueDate: z.date().optional(),
-  amount: z.number(),
-  currency: z.string().default('USD'),
-  lineItems: z.array(lineItemSchema),
-  notes: z.string().optional(),
+  customerName: z.string().describe('Name of the customer or client being billed'),
+  vendorName: z.string().describe('Name of the company issuing the invoice'),
+  invoiceNumber: z.string().describe('Unique identifier or reference number for the invoice'),
+  invoiceDate: z.string().transform(str => new Date(str)).describe('Date when the invoice was issued (YYYY-MM-DD)'),
+  dueDate: z.string().transform(str => new Date(str)).optional().describe('Date when the payment is due (YYYY-MM-DD, optional)'),
+  amount: z.number().describe('Total amount of the invoice including all line items and taxes'),
+  currency: z.string().default('USD').describe('Currency code for the invoice amounts (default: USD)'),
+  lineItems: z.array(lineItemSchema).describe('List of products or services being billed'),
+  notes: z.string().optional().describe('Additional notes or payment instructions (optional)'),
 });
 
 // Enhanced schema that includes AI assessment
@@ -49,11 +48,11 @@ export const extractInvoiceData = ({ session, dataStream }: ExtractInvoiceDataPr
     description:
       'Extract information from an invoice image or PDF such as customer name, vendor name, invoice number, invoice date, due date, amount, and line items. This tool does NOT save to the database, it only extracts the data for preview and verification.',
     parameters: z.object({
-      filePath: z.string().describe('Path to the invoice file'),
-      fileType: z.string().describe('File type (e.g., "pdf", "image/jpeg")'),
-      fileSize: z.number().optional().describe('File size in bytes'),
+      url: z.string().describe('URL of the invoice file'),
+      contentType: z.string().describe('Content type of the file (e.g., "application/pdf", "image/jpeg")'),
+      name: z.string().optional().describe('Name of the file'),
     }),
-    execute: async ({ filePath, fileType, fileSize }) => {
+    execute: async ({ url, contentType, name }) => {
       try {
         // Signal processing start
         dataStream.writeData({
@@ -63,7 +62,7 @@ export const extractInvoiceData = ({ session, dataStream }: ExtractInvoiceDataPr
 
         // Perform the actual extraction logic
         // In a real implementation, this would use vision models, OCR, etc.
-        const extractionResult = await performInvoiceExtraction(filePath, fileType);
+        const extractionResult = await performInvoiceExtraction(url, contentType);
         
         // Count tokens used for metrics
         const tokensUsed = calculateTokensUsed(extractionResult.data);
@@ -120,6 +119,7 @@ export const extractInvoiceData = ({ session, dataStream }: ExtractInvoiceDataPr
           tokensUsed,
           tokensCost,
           message: 'Invoice data extracted successfully. Please review before saving.',
+          fileName: name
         };
       } catch (error) {
         console.error('Error extracting invoice data:', error);
@@ -148,19 +148,13 @@ interface ExtractionResult {
 }
 
 // This function implements invoice extraction using generateObject from Vercel AI SDK
-async function performInvoiceExtraction(filePath: string, fileType: string): Promise<ExtractionResult> {
+async function performInvoiceExtraction(fileUrl: string, contentType: string): Promise<ExtractionResult> {
   try {
-    console.log(`Extracting invoice data from: ${filePath} (${fileType})`);
-    
-    // Read the file content
-    const fileContent = await fs.readFile(filePath);
-    
-    // Determine the MIME type based on fileType
-    const mimeType = determineMimeType(fileType);
+    console.log(`Extracting invoice data from file URL (${contentType})`);
     
     // Use generateObject with the provided model and schema to extract structured data
     const { object } = await generateObject({
-      model: myProvider.languageModel('chat-model-large'),
+      model: myProvider.languageModel('chat-model-anthropic'),
       system: `You are an expert at extracting structured data from invoices. 
         Extract all relevant information from the provided invoice document.
         Be precise and thorough in extracting customer name, vendor details, invoice numbers, dates, and line items.
@@ -170,7 +164,8 @@ async function performInvoiceExtraction(filePath: string, fileType: string): Pro
         A genuine invoice typically contains: an invoice number, vendor information, customer details,
         itemized charges, total amount, and date information.`,
       prompt: `Please analyze this document and extract all structured information if it is an invoice. 
-        The file is provided in ${mimeType} format. If it's not an invoice, explain why.`,
+        The file is provided in ${contentType} format. If it's not an invoice, explain why.
+        The file is available at: ${fileUrl}`,
       schema: invoiceSchema
     });
     
@@ -195,26 +190,6 @@ async function performInvoiceExtraction(filePath: string, fileType: string): Pro
       data: createEmptyInvoiceData(),
       reasoning: "Error occurred during extraction"
     };
-  }
-}
-
-// Helper function to determine MIME type
-function determineMimeType(fileType: string): string {
-  const lowerFileType = fileType.toLowerCase();
-  
-  if (lowerFileType === 'pdf' || lowerFileType.includes('pdf')) {
-    return 'application/pdf';
-  } else if (lowerFileType.includes('image/')) {
-    return lowerFileType; // Already a MIME type
-  } else if (lowerFileType === 'jpg' || lowerFileType === 'jpeg') {
-    return 'image/jpeg';
-  } else if (lowerFileType === 'png') {
-    return 'image/png';
-  } else if (lowerFileType === 'tiff') {
-    return 'image/tiff';
-  } else {
-    // Default to PDF if we can't determine
-    return 'application/pdf';
   }
 }
 

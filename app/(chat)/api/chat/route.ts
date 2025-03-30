@@ -74,10 +74,10 @@ export async function POST(request: Request) {
           selectedChatModel === 'chat-model-reasoning'
             ? []
             : [
-                'getWeather',
-                'createDocument',
-                'updateDocument',
-                'requestSuggestions',
+                // 'getWeather',
+                // 'createDocument',
+                // 'updateDocument',
+                // 'requestSuggestions',
                 'extractInvoiceData',
                 'saveInvoiceData',
                 'editInvoiceData',
@@ -85,13 +85,13 @@ export async function POST(request: Request) {
         experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
         tools: {
-          getWeather,
-          createDocument: createDocument({ session, dataStream }),
-          updateDocument: updateDocument({ session, dataStream }),
-          requestSuggestions: requestSuggestions({
-            session,
-            dataStream,
-          }),
+          // getWeather,
+          // createDocument: createDocument({ session, dataStream }),
+          // updateDocument: updateDocument({ session, dataStream }),
+          // requestSuggestions: requestSuggestions({
+          //   session,
+          //   dataStream,
+          // }),
           extractInvoiceData: extractInvoiceData({
             session,
             dataStream,
