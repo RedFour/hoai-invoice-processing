@@ -11,6 +11,8 @@ import {
   type Message,
   message,
   vote,
+  invoice,
+  lineItem,
 } from './schema';
 import type { BlockKind } from '@/components/block';
 
@@ -319,4 +321,265 @@ export async function updateChatVisiblityById({
     console.error('Failed to update chat visibility in database');
     throw error;
   }
+}
+
+// Invoice queries
+export async function saveInvoice({
+  id,
+  customerName,
+  vendorName,
+  invoiceNumber,
+  invoiceDate,
+  dueDate,
+  amount,
+  currency = 'USD',
+  filePath,
+  fileType,
+  fileSize,
+  tokensUsed,
+  tokensCost,
+  notes,
+}: {
+  id: string;
+  customerName: string;
+  vendorName: string;
+  invoiceNumber: string;
+  invoiceDate: Date;
+  dueDate?: Date;
+  amount: number;
+  currency?: string;
+  filePath?: string;
+  fileType?: string;
+  fileSize?: number;
+  tokensUsed?: number;
+  tokensCost?: number;
+  notes?: string;
+}) {
+  return db
+    .insert(invoice)
+    .values({
+      id,
+      createdAt: new Date(),
+      customerName,
+      vendorName,
+      invoiceNumber,
+      invoiceDate,
+      dueDate,
+      amount,
+      currency,
+      filePath,
+      fileType,
+      fileSize,
+      tokensUsed,
+      tokensCost,
+      notes,
+      status: 'processed',
+    })
+    .returning()
+    .get();
+}
+
+export async function updateInvoice({
+  id,
+  customerName,
+  vendorName,
+  invoiceNumber,
+  invoiceDate,
+  dueDate,
+  amount,
+  currency,
+  status,
+  notes,
+}: {
+  id: string;
+  customerName?: string;
+  vendorName?: string;
+  invoiceNumber?: string;
+  invoiceDate?: Date;
+  dueDate?: Date;
+  amount?: number;
+  currency?: string;
+  status?: 'processed' | 'pending' | 'error';
+  notes?: string;
+}) {
+  const updateValues: Partial<typeof invoice.$inferInsert> = {};
+  
+  if (customerName !== undefined) updateValues.customerName = customerName;
+  if (vendorName !== undefined) updateValues.vendorName = vendorName;
+  if (invoiceNumber !== undefined) updateValues.invoiceNumber = invoiceNumber;
+  if (invoiceDate !== undefined) updateValues.invoiceDate = invoiceDate;
+  if (dueDate !== undefined) updateValues.dueDate = dueDate;
+  if (amount !== undefined) updateValues.amount = amount;
+  if (currency !== undefined) updateValues.currency = currency;
+  if (status !== undefined) updateValues.status = status;
+  if (notes !== undefined) updateValues.notes = notes;
+
+  return db
+    .update(invoice)
+    .set(updateValues)
+    .where(eq(invoice.id, id))
+    .returning()
+    .get();
+}
+
+export async function updateInvoiceTokenUsage({
+  id,
+  tokensUsed,
+  tokensCost,
+}: {
+  id: string;
+  tokensUsed: number;
+  tokensCost: number;
+}) {
+  return db
+    .update(invoice)
+    .set({ tokensUsed, tokensCost })
+    .where(eq(invoice.id, id))
+    .returning()
+    .get();
+}
+
+export async function getInvoiceById({ id }: { id: string }) {
+  return db.select().from(invoice).where(eq(invoice.id, id)).get();
+}
+
+export async function getInvoices({
+  limit = 100,
+  offset = 0,
+  orderBy = 'createdAt',
+  orderDirection = 'desc',
+}: {
+  limit?: number;
+  offset?: number;
+  orderBy?: keyof typeof invoice.$inferSelect;
+  orderDirection?: 'asc' | 'desc';
+} = {}) {
+  const orderColumn = invoice[orderBy];
+  
+  if (!orderColumn) {
+    throw new Error(`Invalid order column: ${orderBy}`);
+  }
+
+  return db
+    .select()
+    .from(invoice)
+    .limit(limit)
+    .offset(offset)
+    .orderBy(orderDirection === 'asc' ? asc(orderColumn) : desc(orderColumn))
+    .all();
+}
+
+export async function findDuplicateInvoice({
+  vendorName,
+  invoiceNumber,
+  amount,
+}: {
+  vendorName: string;
+  invoiceNumber: string;
+  amount: number;
+}) {
+  return db
+    .select()
+    .from(invoice)
+    .where(
+      and(
+        eq(invoice.vendorName, vendorName),
+        eq(invoice.invoiceNumber, invoiceNumber),
+        eq(invoice.amount, amount)
+      )
+    )
+    .get();
+}
+
+export async function deleteInvoiceById({ id }: { id: string }) {
+  return db.delete(invoice).where(eq(invoice.id, id)).run();
+}
+
+// Line item queries
+export async function saveLineItem({
+  id,
+  invoiceId,
+  description,
+  quantity,
+  unitPrice,
+  amount,
+  productCode,
+  taxRate,
+  metadata,
+}: {
+  id: string;
+  invoiceId: string;
+  description: string;
+  quantity?: number;
+  unitPrice?: number;
+  amount: number;
+  productCode?: string;
+  taxRate?: number;
+  metadata?: Record<string, any>;
+}) {
+  return db
+    .insert(lineItem)
+    .values({
+      id,
+      invoiceId,
+      description,
+      quantity,
+      unitPrice,
+      amount,
+      productCode,
+      taxRate,
+      metadata,
+      createdAt: new Date(),
+    })
+    .returning()
+    .get();
+}
+
+export async function saveLineItems({
+  items,
+}: {
+  items: Array<{
+    id: string;
+    invoiceId: string;
+    description: string;
+    quantity?: number;
+    unitPrice?: number;
+    amount: number;
+    productCode?: string;
+    taxRate?: number;
+    metadata?: Record<string, any>;
+  }>;
+}) {
+  if (items.length === 0) return [];
+
+  return db
+    .insert(lineItem)
+    .values(
+      items.map((item) => ({
+        ...item,
+        createdAt: new Date(),
+      }))
+    )
+    .returning()
+    .all();
+}
+
+export async function getLineItemsByInvoiceId({
+  invoiceId,
+}: {
+  invoiceId: string;
+}) {
+  return db
+    .select()
+    .from(lineItem)
+    .where(eq(lineItem.invoiceId, invoiceId))
+    .all();
+}
+
+export async function deleteLineItemsByInvoiceId({
+  invoiceId,
+}: {
+  invoiceId: string;
+}) {
+  return db.delete(lineItem).where(eq(lineItem.invoiceId, invoiceId)).run();
 }

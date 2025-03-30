@@ -5,6 +5,7 @@ import {
   blob,
   foreignKey,
   primaryKey,
+  real,
 } from 'drizzle-orm/sqlite-core';
 import type { InferSelectModel } from 'drizzle-orm';
 
@@ -99,3 +100,44 @@ export const suggestion = sqliteTable(
 );
 
 export type Suggestion = InferSelectModel<typeof suggestion>;
+
+export const invoice = sqliteTable('Invoice', {
+  id: text('id').primaryKey().notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+  customerName: text('customerName').notNull(),
+  vendorName: text('vendorName').notNull(),
+  invoiceNumber: text('invoiceNumber').notNull(),
+  invoiceDate: integer('invoiceDate', { mode: 'timestamp' }).notNull(),
+  dueDate: integer('dueDate', { mode: 'timestamp' }),
+  amount: real('amount').notNull(),
+  currency: text('currency').default('USD'),
+  status: text('status')
+    .notNull()
+    .default('processed')
+    .$type<'processed' | 'pending' | 'error'>(),
+  filePath: text('filePath'),
+  fileType: text('fileType'),
+  fileSize: integer('fileSize'),
+  tokensUsed: integer('tokensUsed'),
+  tokensCost: real('tokensCost'),
+  notes: text('notes'),
+});
+
+export type Invoice = InferSelectModel<typeof invoice>;
+
+export const lineItem = sqliteTable('LineItem', {
+  id: text('id').primaryKey().notNull(),
+  invoiceId: text('invoiceId')
+    .notNull()
+    .references(() => invoice.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  quantity: real('quantity'),
+  unitPrice: real('unitPrice'),
+  amount: real('amount').notNull(),
+  productCode: text('productCode'),
+  taxRate: real('taxRate'),
+  metadata: blob('metadata', { mode: 'json' }),
+  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+});
+
+export type LineItem = InferSelectModel<typeof lineItem>;
