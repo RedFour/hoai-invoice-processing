@@ -10,8 +10,8 @@ const FileSchema = z.object({
       message: 'File size should be less than 5MB',
     })
     // Update the file type based on the kind of files you want to accept
-    .refine((file) => ['image/jpeg', 'image/png'].includes(file.type), {
-      message: 'File type should be JPEG or PNG',
+    .refine((file) => ['image/jpeg', 'image/png', 'application/pdf'].includes(file.type), {
+      message: 'File type should be JPEG, PNG, or PDF',
     }),
 });
 
@@ -54,8 +54,15 @@ export async function POST(request: Request) {
       const timestamp = Date.now();
       const uniqueFilename = `${timestamp}-${filename}`;
 
-      // Create data URL for immediate preview
-      const dataURL = `data:${file.type};base64,${buffer.toString('base64')}`;
+      // Create data URL
+      let dataURL;
+      if (file.type === 'application/pdf') {
+        // Use the proper MIME type for PDF data URLs
+        dataURL = `data:application/pdf;base64,${buffer.toString('base64')}`;
+      } else {
+        // For images and other file types
+        dataURL = `data:${file.type};base64,${buffer.toString('base64')}`;
+      }
 
       return NextResponse.json({
         url: dataURL,
