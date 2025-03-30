@@ -25,6 +25,9 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
+import { extractInvoiceData } from '@/lib/ai/tools/extract-invoice-data';
+import { saveInvoiceData } from '@/lib/ai/tools/save-invoice-data';
+import { editInvoiceData } from '@/lib/ai/tools/edit-invoice-data';
 
 export const maxDuration = 60;
 
@@ -66,6 +69,7 @@ export async function POST(request: Request) {
         system: systemPrompt({ selectedChatModel }),
         messages,
         maxSteps: 5,
+        // Enable multiple roundtrips through experimental settings
         experimental_activeTools:
           selectedChatModel === 'chat-model-reasoning'
             ? []
@@ -74,6 +78,9 @@ export async function POST(request: Request) {
                 'createDocument',
                 'updateDocument',
                 'requestSuggestions',
+                'extractInvoiceData',
+                'saveInvoiceData',
+                'editInvoiceData',
               ],
         experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
@@ -85,6 +92,15 @@ export async function POST(request: Request) {
             session,
             dataStream,
           }),
+          extractInvoiceData: extractInvoiceData({
+            session,
+            dataStream,
+          }),
+          saveInvoiceData: saveInvoiceData({
+            session,
+            dataStream,
+          }),
+          editInvoiceData,
         },
         onFinish: async ({ response, reasoning }) => {
           if (session.user?.id) {
