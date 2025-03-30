@@ -2,6 +2,7 @@ import { codeDocumentHandler } from '@/blocks/code/server';
 import { imageDocumentHandler } from '@/blocks/image/server';
 import { sheetDocumentHandler } from '@/blocks/sheet/server';
 import { textDocumentHandler } from '@/blocks/text/server';
+import { customDocumentHandler } from '@/blocks/custom/server';
 import type { BlockKind } from '@/components/block';
 import type { DataStreamWriter } from 'ai';
 import type { Document } from '../db/schema';
@@ -94,6 +95,7 @@ export const documentHandlersByBlockKind: Array<DocumentHandler> = [
   codeDocumentHandler,
   imageDocumentHandler,
   sheetDocumentHandler,
+  customDocumentHandler,
 ];
 
-export const blockKinds = ['text', 'code', 'image', 'sheet'] as const;
+export const blockKinds = ['text', 'code', 'image', 'sheet', 'custom'] as const;
