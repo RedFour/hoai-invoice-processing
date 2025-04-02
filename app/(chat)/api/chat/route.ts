@@ -25,9 +25,7 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
-import { extractInvoiceData } from '@/lib/ai/tools/extract-invoice-data';
-import { saveInvoiceData } from '@/lib/ai/tools/save-invoice-data';
-import { editInvoiceData } from '@/lib/ai/tools/edit-invoice-data';
+import { processInvoiceData } from '@/lib/ai/tools/process-invoice-data';
 
 export const maxDuration = 60;
 
@@ -78,9 +76,7 @@ export async function POST(request: Request) {
                 // 'createDocument',
                 // 'updateDocument',
                 // 'requestSuggestions',
-                'extractInvoiceData',
-                'saveInvoiceData',
-                'editInvoiceData',
+                'processInvoiceData',
               ],
         experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
@@ -92,16 +88,21 @@ export async function POST(request: Request) {
           //   session,
           //   dataStream,
           // }),
-          extractInvoiceData: extractInvoiceData({
+          processInvoiceData: processInvoiceData({
             session,
             dataStream,
           }),
-          saveInvoiceData: saveInvoiceData({
-            session,
-            dataStream,
-          }),
-          editInvoiceData,
         },
+        onStepFinish: async ({ text, toolCalls, toolResults, finishReason, usage }) => {
+          console.log('onStepFinish', { text, toolCalls, toolResults, finishReason, usage });
+          if (toolCalls && toolCalls.length > 0) {
+            toolCalls.forEach(toolCall => {
+              console.log('Tool call:', toolCall.toolName);
+              console.log('Tool params:', JSON.stringify(toolCall.args, null, 2));
+            });
+          }
+          console.log(`toolResults`, toolResults.forEach(toolResult => console.log(`${toolResult.toolName}:`, toolResult.result)));
+        },        
         onFinish: async ({ response, reasoning }) => {
           if (session.user?.id) {
             try {

@@ -7,17 +7,17 @@ import {
   saveInvoice,
   saveLineItems,
 } from '@/lib/db/queries';
-import { invoiceDataSchema } from './extract-invoice-data';
+import { invoiceDataSchema } from '@/lib/ai/schemas/invoice-schema';
 
-interface SaveInvoiceDataProps {
+interface ProcessInvoiceDataProps {
   session: Session;
   dataStream: DataStreamWriter;
 }
 
-export const saveInvoiceData = ({ session, dataStream }: SaveInvoiceDataProps) =>
+export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataProps) =>
   tool({
     description:
-      'Save extracted invoice data to the database. This tool should be used after the extractInvoiceData tool has successfully extracted and verified invoice information.',
+      'Process and save invoice data to the database. This tool handles the complete invoice processing workflow.',
     parameters: z.object({
       invoiceData: invoiceDataSchema.describe('The extracted and verified invoice data to save'),
       url: z.string().optional().describe('URL of the invoice file'),
