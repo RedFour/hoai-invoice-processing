@@ -79,7 +79,7 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
             name: part.filename,
             contentType: part.mimeType
           }));
-        
+                
         if (attachedFiles.length === 0) {
           return {
             success: false,
@@ -89,7 +89,8 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
         }
 
         // Process each attachment using generateObject
-        const processedAttachments = [];
+        const invoiceAttachments = [];
+        const nonInvoiceAttachments = [];
         for (const file of attachedFiles) {
           const { object, usage } = await generateObject({
             model: myProvider.languageModel('chat-model-anthropic'),
@@ -100,7 +101,7 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
                 content: [
                   {
                     type: 'text',
-                    text: `Process the following file: ${file.name} (${file.contentType})`
+                    text: 'Process the following file'
                   },
                   {
                     type: 'file',
@@ -114,24 +115,31 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
             schema: extractInvoiceSchema,
           });
 
-          if (object && object.invoiceData) {
-            processedAttachments.push({
-              file,
+          if (object && object.invoiceData && object.isInvoice && object.confidence > 0.75) {
+            invoiceAttachments.push({
+              fileName: file.name,
               invoiceData: object.invoiceData,
               tokensUsed: usage.totalTokens
+            });
+          } else {
+            nonInvoiceAttachments.push({
+              fileName: file.name,
+              reasoning: object.reasoning,
             });
           }
         }
 
-        // Signal saving start
-        dataStream.writeData({
-          type: 'savingStart',
-          content: 'Saving invoice data to database...',
-        });
+        if (invoiceAttachments.length === 0) {
+          return {
+            success: false,
+            error: 'No invoice data found',
+            message: 'No invoice data was found in the uploaded files.',
+          };
+        }
 
         // Save each processed attachment that contains invoice data
         const savedInvoices = [];
-        for (const attachment of processedAttachments) {
+        for (const attachment of invoiceAttachments) {
           const savedInvoice = await saveInvoiceToDatabase(
             attachment.invoiceData,
             attachment.tokensUsed
@@ -139,23 +147,18 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
           savedInvoices.push(savedInvoice);
         }
         
-        // Send success message
-        dataStream.writeData({
-          type: 'savingComplete',
-          content: 'Invoice saved successfully.',
-        });
-        
         return {
           success: true,
-          message: 'Invoice data saved successfully.',
+          message: 'Processing complete',
           savedInvoices,
+          nonInvoiceAttachments,
         };
       } catch (error) {
         console.error('Error saving invoice data:', error);
         
         dataStream.writeData({
           type: 'error',
-          content: 'Error saving invoice data.',
+          content: 'An error occurred while saving the invoice data. Please try again or contact support.',
         });
         
         return {
