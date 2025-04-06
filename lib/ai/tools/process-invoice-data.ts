@@ -6,6 +6,7 @@ import type { Session } from 'next-auth';
 import {
   saveInvoice,
   saveLineItems,
+  findDuplicateInvoice,
 } from '@/lib/db/queries';
 import { invoiceDataSchema, extractInvoiceSchema } from '@/lib/ai/schemas/invoice-schema';
 import { myProvider } from '@/lib/ai/models';
@@ -139,9 +140,29 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
 
         // Save each processed attachment that contains invoice data
         const savedInvoices = [];
+        const duplicateInvoices = [];
+
         for (const attachment of invoiceAttachments) {
+          const { invoiceData } = attachment;
+          
+          // Check for duplicate invoice
+          const duplicate = await findDuplicateInvoice({
+            vendorName: invoiceData.vendorName,
+            invoiceNumber: invoiceData.invoiceNumber,
+            amount: invoiceData.amount,
+          });
+
+          if (duplicate) {
+            duplicateInvoices.push({
+              fileName: attachment.fileName,
+              invoiceData: attachment.invoiceData,
+              existingInvoice: duplicate,
+            });
+            continue;
+          }
+
           const savedInvoice = await saveInvoiceToDatabase(
-            attachment.invoiceData,
+            invoiceData,
             attachment.tokensUsed
           );
           savedInvoices.push(savedInvoice);
@@ -151,6 +172,7 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
           success: true,
           message: 'Processing complete',
           savedInvoices,
+          duplicateInvoices,
           nonInvoiceAttachments,
         };
       } catch (error) {
