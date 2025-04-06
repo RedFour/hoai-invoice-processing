@@ -115,11 +115,7 @@ export const invoice = sqliteTable('Invoice', {
     .notNull()
     .default('processed')
     .$type<'processed' | 'pending' | 'error'>(),
-  filePath: text('filePath'),
-  fileType: text('fileType'),
-  fileSize: integer('fileSize'),
   tokensUsed: integer('tokensUsed'),
-  tokensCost: real('tokensCost'),
   notes: text('notes'),
 });
 

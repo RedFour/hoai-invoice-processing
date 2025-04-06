@@ -101,7 +101,16 @@ export async function POST(request: Request) {
               console.log('Tool params:', JSON.stringify(toolCall.args, null, 2));
             });
           }
-          console.log(`toolResults`, toolResults.forEach(toolResult => console.log(`${toolResult.toolName}:`, toolResult.result)));
+          if (toolResults && toolResults.length > 0) {
+            toolResults.forEach(toolResult => {
+              console.log(`Tool result for ${toolResult.toolName}:`, {
+                success: toolResult.result.success,
+                message: toolResult.result.message,
+                error: toolResult.result.error,
+                savedInvoices: toolResult.result.savedInvoices?.length || 0
+              });
+            });
+          }
         },        
         onFinish: async ({ response, reasoning }) => {
           if (session.user?.id) {
@@ -123,7 +132,13 @@ export async function POST(request: Request) {
                 }),
               });
             } catch (error) {
-              console.error('Failed to save chat');
+              console.error('Failed to save chat:', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                chatId: id,
+                userId: session.user.id,
+                messageCount: response.messages.length
+              });
             }
           }
         },
@@ -137,8 +152,14 @@ export async function POST(request: Request) {
         sendReasoning: true,
       });
     },
-    onError: () => {
-      return 'Oops, an error occured!';
+    onError: (error) => {
+      console.error('Chat API Error:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        chatId: id,
+        timestamp: new Date().toISOString()
+      });
+      return 'Oops, an error occurred!';
     },
   });
 }

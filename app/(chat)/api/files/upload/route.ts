@@ -55,14 +55,7 @@ export async function POST(request: Request) {
       const uniqueFilename = `${timestamp}-${filename}`;
 
       // Create data URL
-      let dataURL;
-      if (file.type === 'application/pdf') {
-        // Use the proper MIME type for PDF data URLs
-        dataURL = `data:application/pdf;base64,${buffer.toString('base64')}`;
-      } else {
-        // For images and other file types
-        dataURL = `data:${file.type};base64,${buffer.toString('base64')}`;
-      }
+      const dataURL = `data:${file.type};base64,${buffer.toString('base64')}`;
 
       return NextResponse.json({
         url: dataURL,

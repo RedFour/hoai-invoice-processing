@@ -23,4 +23,11 @@ export const invoiceDataSchema = z.object({
   notes: z.string().optional().describe('Additional notes or payment instructions (optional)'),
 });
 
+export const extractInvoiceSchema = z.object({
+  invoiceData: invoiceDataSchema,
+  isInvoice: z.boolean().describe('Whether the document is a valid invoice or not.'),
+  confidence: z.number().min(0).max(1).describe('Confidence score between 0 and 1 indicating how confident the model is about its extraction.'),
+  reasoning: z.string().describe('Brief explanation of why the document is not considered an invoice. Only include this if the document is not an invoice.')
+});
+
 export type InvoiceData = z.infer<typeof invoiceDataSchema>; 

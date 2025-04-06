@@ -15,6 +15,13 @@
       "when": 1743314832537,
       "tag": "0001_chunky_alice",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1743916558877,
+      "tag": "0002_conscious_khan",
+      "breakpoints": true
     }
   ]
 }

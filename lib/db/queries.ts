@@ -333,11 +333,7 @@ export async function saveInvoice({
   dueDate,
   amount,
   currency = 'USD',
-  filePath,
-  fileType,
-  fileSize,
   tokensUsed,
-  tokensCost,
   notes,
 }: {
   id: string;
@@ -348,11 +344,7 @@ export async function saveInvoice({
   dueDate?: Date;
   amount: number;
   currency?: string;
-  filePath?: string;
-  fileType?: string;
-  fileSize?: number;
   tokensUsed?: number;
-  tokensCost?: number;
   notes?: string;
 }) {
   return db
@@ -367,11 +359,7 @@ export async function saveInvoice({
       dueDate,
       amount,
       currency,
-      filePath,
-      fileType,
-      fileSize,
       tokensUsed,
-      tokensCost,
       notes,
       status: 'processed',
     })
@@ -425,15 +413,13 @@ export async function updateInvoice({
 export async function updateInvoiceTokenUsage({
   id,
   tokensUsed,
-  tokensCost,
 }: {
   id: string;
   tokensUsed: number;
-  tokensCost: number;
 }) {
   return db
     .update(invoice)
-    .set({ tokensUsed, tokensCost })
+    .set({ tokensUsed })
     .where(eq(invoice.id, id))
     .returning()
     .get();
