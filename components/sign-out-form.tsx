@@ -1,6 +1,5 @@
 import Form from 'next/form';
-
-import { signOut } from '@/app/(auth)/auth';
+import { redirect } from 'next/navigation';
 
 export const SignOutForm = () => {
   return (
@@ -8,10 +7,9 @@ export const SignOutForm = () => {
       className="w-full"
       action={async () => {
         'use server';
-
-        await signOut({
-          redirectTo: '/',
-        });
+        
+        // Simply redirect to the home page
+        redirect('/');
       }}
     >
       <button

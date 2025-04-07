@@ -10,6 +10,7 @@ import {
 } from '@/lib/db/queries';
 import { invoiceDataSchema, extractInvoiceSchema } from '@/lib/ai/schemas/invoice-schema';
 import { myProvider } from '@/lib/ai/models';
+import { invoiceSystemPrompt } from '../prompts';
 
 interface ProcessInvoiceDataProps {
   session: Session;
@@ -17,6 +18,19 @@ interface ProcessInvoiceDataProps {
 }
 
 type InvoiceData = z.infer<typeof invoiceDataSchema>;
+
+// Helper function to convert Date objects to ISO strings for JSON serialization
+function serializeInvoice(invoice: any) {
+  return {
+    ...invoice,
+    invoiceDate: invoice.invoiceDate instanceof Date 
+      ? invoice.invoiceDate.toISOString() 
+      : invoice.invoiceDate,
+    dueDate: invoice.dueDate instanceof Date 
+      ? invoice.dueDate.toISOString() 
+      : invoice.dueDate,
+  };
+}
 
 async function saveInvoiceToDatabase(
   invoiceData: InvoiceData,
@@ -49,7 +63,7 @@ async function saveInvoiceToDatabase(
     await saveLineItems({ items: lineItems });
   }
 
-  return savedInvoice;
+  return { ...savedInvoice, id: invoiceId };
 }
 
 export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataProps) =>
@@ -95,7 +109,7 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
         for (const file of attachedFiles) {
           const { object, usage } = await generateObject({
             model: myProvider.languageModel('chat-model-anthropic'),
-            system: 'Extract invoice data from the provided file. Focus on identifying key invoice details like customer name, vendor name, invoice number, dates, amounts, and line items.',
+            system: invoiceSystemPrompt,
             messages: [
               {
                 role: 'user',
@@ -165,15 +179,47 @@ export const processInvoiceData = ({ session, dataStream }: ProcessInvoiceDataPr
             invoiceData,
             attachment.tokensUsed
           );
-          savedInvoices.push(savedInvoice);
+          
+          savedInvoices.push({
+            ...invoiceData,
+            id: savedInvoice.id
+          });
+        }
+
+        // Render InvoicesEditor component for saved invoices
+        if (savedInvoices.length > 0) {
+          // Serialize data with dates converted to ISO strings
+          const serializedInvoices = savedInvoices.map(serializeInvoice);
+          
+          dataStream.writeData({
+            type: 'invoiceTable',
+            content: {
+              invoices: serializedInvoices
+            }
+          });
+        }
+        
+        let messageContent = '';
+        
+        if (savedInvoices.length > 0) {
+          messageContent += `Successfully processed and saved ${savedInvoices.length} invoice(s).\n`;
+        }
+        
+        if (duplicateInvoices.length > 0) {
+          messageContent += `Found ${duplicateInvoices.length} duplicate invoice(s) that were not saved.\n`;
+        }
+        
+        if (nonInvoiceAttachments.length > 0) {
+          messageContent += `${nonInvoiceAttachments.length} file(s) did not contain recognizable invoice data.\n`;
         }
         
         return {
           success: true,
-          message: 'Processing complete',
-          savedInvoices,
-          duplicateInvoices,
-          nonInvoiceAttachments,
+          message: messageContent.trim(),
+          renderedComponent: {
+            type: 'InvoicesEditor',
+            invoices: savedInvoices.map(serializeInvoice)
+          }
         };
       } catch (error) {
         console.error('Error saving invoice data:', error);

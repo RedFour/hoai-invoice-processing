@@ -103,12 +103,7 @@ export async function POST(request: Request) {
           }
           if (toolResults && toolResults.length > 0) {
             toolResults.forEach(toolResult => {
-              console.log(`Tool result for ${toolResult.toolName}:`, {
-                success: toolResult.result.success,
-                message: toolResult.result.message,
-                error: toolResult.result.error,
-                savedInvoices: toolResult.result.savedInvoices?.length || 0
-              });
+              console.log(`Tool result for ${toolResult.toolName}:`, toolResult.result);
             });
           }
         },        

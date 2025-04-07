@@ -13,6 +13,7 @@ import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
 import { Weather } from './weather';
+import InvoicesEditor from './invoices-editor';
 import equal from 'fast-deep-equal';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -160,6 +161,10 @@ const PurePreviewMessage = ({
                             type="request-suggestions"
                             result={result}
                             isReadonly={isReadonly}
+                          />
+                        ) : toolName === 'processInvoiceData' && result.renderedComponent?.type === 'InvoicesEditor' ? (
+                          <InvoicesEditor 
+                            invoices={result.renderedComponent.invoices}
                           />
                         ) : (
                           <pre>{JSON.stringify(result, null, 2)}</pre>

@@ -93,8 +93,7 @@ export function DocumentPreview({
           content: block.content,
           id: block.documentId,
           createdAt: new Date(),
-          userId: 'noop',
-        }
+        } as Document
       : null;
 
   if (!document) return <LoadingSkeleton blockKind={block.kind} />;
@@ -199,7 +198,7 @@ const PureDocumentHeader = ({
   isStreaming,
 }: {
   title: string;
-  kind: BlockKind;
+  kind: 'text' | 'code' | 'image' | 'sheet' | 'custom';
   isStreaming: boolean;
 }) => (
   <div className="p-4 border rounded-t-2xl flex flex-row gap-2 items-start sm:items-center justify-between dark:bg-muted border-b-0 dark:border-zinc-700">
