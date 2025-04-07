@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { InvoiceData } from "@/lib/ai/schemas/invoice-schema";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Calendar as CalendarIcon, Maximize2, Minimize2, X } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import React from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useWindowSize } from "usehooks-ts";
 
 // Add custom column meta type
 type ColumnMeta = {
@@ -42,6 +44,19 @@ export default function InvoicesEditor({ invoices: initialInvoices }: InvoicesEd
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<InvoiceData>>({});
   const [isUpdating, setIsUpdating] = useState(false);
+  // Add state for fullscreen mode
+  const [isExpanded, setIsExpanded] = useState(false);
+  // Track the container element position for animations
+  const [containerRect, setContainerRect] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+  });
+
+  // Get window dimensions for fullscreen mode
+  const { width: windowWidth, height: windowHeight } = useWindowSize();
+  const isMobile = windowWidth ? windowWidth < 768 : false;
 
   const columnHelper = createColumnHelper<InvoiceData & { id: string }>();
   
@@ -493,69 +508,211 @@ export default function InvoicesEditor({ invoices: initialInvoices }: InvoicesEd
     setEditData({});
   };
 
+  // Toggle fullscreen mode
+  const toggleExpanded = useCallback(() => {
+    // If expanding, capture current position for animation
+    if (!isExpanded) {
+      const container = document.getElementById('invoice-editor-container');
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        setContainerRect({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+    }
+    setIsExpanded(!isExpanded);
+  }, [isExpanded]);
+
   return (
-    <div className="w-full overflow-auto">
-      <h2 className="text-xl font-bold mb-4">Invoice Data</h2>
-      <table className="w-full border-collapse table-fixed">
-        <thead>
-          {table.getHeaderGroups().map(headerGroup => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map(header => (
-                <th 
-                  key={header.id}
-                  className="cursor-pointer text-left p-4 border-b whitespace-nowrap"
-                  onClick={header.column.getToggleSortingHandler()}
-                  style={{ 
-                    width: (header.column.columnDef.meta as ColumnMeta)?.width,
-                    minWidth: (header.column.columnDef.meta as ColumnMeta)?.width
-                  }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                  {{
-                    asc: ' 🔼',
-                    desc: ' 🔽',
-                  }[header.column.getIsSorted() as string] ?? null}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map(row => (
-            <React.Fragment key={row.id}>
-              <tr className="hover:bg-gray-50">
-                {row.getVisibleCells().map(cell => (
-                  <td 
-                    key={cell.id} 
-                    className="p-4 border-b"
-                    style={{ 
-                      width: (cell.column.columnDef.meta as ColumnMeta)?.width,
-                      minWidth: (cell.column.columnDef.meta as ColumnMeta)?.width,
-                      maxWidth: (cell.column.columnDef.meta as ColumnMeta)?.width,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis"
-                    }}
-                  >
-                    <div className="truncate">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </div>
-                  </td>
+    <AnimatePresence>
+      {isExpanded ? (
+        <motion.div
+          className="fixed inset-0 z-50 flex flex-col bg-background dark:bg-muted"
+          initial={{
+            opacity: 0,
+            x: containerRect.left,
+            y: containerRect.top,
+            width: containerRect.width,
+            height: containerRect.height,
+            borderRadius: 8,
+          }}
+          animate={{
+            opacity: 1,
+            x: 0,
+            y: 0,
+            width: '100%',
+            height: '100%',
+            borderRadius: 0,
+            transition: {
+              type: 'spring',
+              stiffness: 200,
+              damping: 30,
+            },
+          }}
+          exit={{
+            opacity: 0,
+            x: containerRect.left,
+            y: containerRect.top,
+            width: containerRect.width,
+            height: containerRect.height,
+            borderRadius: 8,
+          }}
+        >
+          <div className="p-2 flex flex-row justify-between items-center border-b">
+            <div className="font-medium text-lg">Invoice Data</div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-fit p-2"
+                onClick={toggleExpanded}
+              >
+                <X size={18} />
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            <table className="w-full border-collapse">
+              <thead>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th 
+                        key={header.id}
+                        className="cursor-pointer text-left p-4 border-b whitespace-nowrap"
+                        onClick={header.column.getToggleSortingHandler()}
+                        style={{ 
+                          width: (header.column.columnDef.meta as ColumnMeta)?.width,
+                          minWidth: (header.column.columnDef.meta as ColumnMeta)?.width
+                        }}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {{
+                          asc: ' 🔼',
+                          desc: ' 🔽',
+                        }[header.column.getIsSorted() as string] ?? null}
+                      </th>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-              {expandedRows[row.original.id] && (
-                <tr>
-                  <td colSpan={row.getVisibleCells().length} className="bg-gray-50 p-0">
-                    <div className="p-4">
-                      <h4 className="font-medium mb-2">Line Items</h4>
-                      {renderLineItems(row.original)}
-                    </div>
-                  </td>
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map(row => (
+                  <React.Fragment key={row.id}>
+                    <tr className="hover:bg-gray-50">
+                      {row.getVisibleCells().map(cell => (
+                        <td 
+                          key={cell.id} 
+                          className="p-4 border-b"
+                          style={{ 
+                            width: (cell.column.columnDef.meta as ColumnMeta)?.width,
+                            minWidth: (cell.column.columnDef.meta as ColumnMeta)?.width,
+                            maxWidth: (cell.column.columnDef.meta as ColumnMeta)?.width,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis"
+                          }}
+                        >
+                          <div className="truncate">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                    {expandedRows[row.original.id] && (
+                      <tr>
+                        <td colSpan={row.getVisibleCells().length} className="bg-gray-50 p-0">
+                          <div className="p-4">
+                            <h4 className="font-medium mb-2">Line Items</h4>
+                            {renderLineItems(row.original)}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      ) : (
+        <div id="invoice-editor-container" className="w-full overflow-auto relative">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Invoice Data</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-fit p-2"
+              onClick={toggleExpanded}
+              title="Expand to full screen"
+            >
+              <Maximize2 size={18} />
+            </Button>
+          </div>
+          <table className="w-full border-collapse table-fixed">
+            <thead>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <th 
+                      key={header.id}
+                      className="cursor-pointer text-left p-4 border-b whitespace-nowrap"
+                      onClick={header.column.getToggleSortingHandler()}
+                      style={{ 
+                        width: (header.column.columnDef.meta as ColumnMeta)?.width,
+                        minWidth: (header.column.columnDef.meta as ColumnMeta)?.width
+                      }}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {{
+                        asc: ' 🔼',
+                        desc: ' 🔽',
+                      }[header.column.getIsSorted() as string] ?? null}
+                    </th>
+                  ))}
                 </tr>
-              )}
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map(row => (
+                <React.Fragment key={row.id}>
+                  <tr className="hover:bg-gray-50">
+                    {row.getVisibleCells().map(cell => (
+                      <td 
+                        key={cell.id} 
+                        className="p-4 border-b"
+                        style={{ 
+                          width: (cell.column.columnDef.meta as ColumnMeta)?.width,
+                          minWidth: (cell.column.columnDef.meta as ColumnMeta)?.width,
+                          maxWidth: (cell.column.columnDef.meta as ColumnMeta)?.width,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                      >
+                        <div className="truncate">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                  {expandedRows[row.original.id] && (
+                    <tr>
+                      <td colSpan={row.getVisibleCells().length} className="bg-gray-50 p-0">
+                        <div className="p-4">
+                          <h4 className="font-medium mb-2">Line Items</h4>
+                          {renderLineItems(row.original)}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </AnimatePresence>
   );
 } 
