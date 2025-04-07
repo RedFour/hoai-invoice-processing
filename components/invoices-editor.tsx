@@ -13,13 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InvoiceData } from "@/lib/ai/schemas/invoice-schema";
-import { format, parse } from "date-fns";
-import { 
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger
-} from "@/components/ui/accordion";
+import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Plus, Trash2, Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -29,6 +23,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import React from "react";
 
 // Add custom column meta type
 type ColumnMeta = {
@@ -527,23 +522,28 @@ export default function InvoicesEditor({ invoices: initialInvoices }: InvoicesEd
         </thead>
         <tbody>
           {table.getRowModel().rows.map(row => (
-            <>
-              <tr key={row.id} className="hover:bg-gray-50">
+            <React.Fragment key={row.id}>
+              <tr className="hover:bg-gray-50">
                 {row.getVisibleCells().map(cell => (
                   <td 
                     key={cell.id} 
-                    className="p-4 border-b whitespace-nowrap"
+                    className="p-4 border-b"
                     style={{ 
                       width: (cell.column.columnDef.meta as ColumnMeta)?.width,
-                      minWidth: (cell.column.columnDef.meta as ColumnMeta)?.width
+                      minWidth: (cell.column.columnDef.meta as ColumnMeta)?.width,
+                      maxWidth: (cell.column.columnDef.meta as ColumnMeta)?.width,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
                     }}
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <div className="truncate">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </div>
                   </td>
                 ))}
               </tr>
               {expandedRows[row.original.id] && (
-                <tr key={`${row.id}-expanded`}>
+                <tr>
                   <td colSpan={row.getVisibleCells().length} className="bg-gray-50 p-0">
                     <div className="p-4">
                       <h4 className="font-medium mb-2">Line Items</h4>
@@ -552,7 +552,7 @@ export default function InvoicesEditor({ invoices: initialInvoices }: InvoicesEd
                   </td>
                 </tr>
               )}
-            </>
+            </React.Fragment>
           ))}
         </tbody>
       </table>
